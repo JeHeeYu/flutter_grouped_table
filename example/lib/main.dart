@@ -79,6 +79,23 @@ class ExamplePage extends StatelessWidget {
       borderWidth: 0.25,
       headerBackgroundColor: const Color(0xFF676B7A),
       rowHeight: 40.0,
+      onCellTap: (rowIndex, colIndex, cell) {
+        final text = cell.child is Text ? ((cell.child as Text).data ?? '') : '';
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Tapped r:$rowIndex c:$colIndex $text'),
+            duration: const Duration(milliseconds: 800),
+          ),
+        );
+      },
+      onHeaderTap: (rowIndex, colIndex, cell) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Header r:$rowIndex c:$colIndex ${cell.text}'),
+            duration: const Duration(milliseconds: 800),
+          ),
+        );
+      },
     );
   }
 }

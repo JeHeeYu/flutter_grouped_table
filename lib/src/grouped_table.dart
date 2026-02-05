@@ -44,6 +44,20 @@ class GroupedTable extends StatelessWidget {
   /// Spacing between rows (vertical spacing)
   final double rowSpacing;
 
+  /// Called when a data cell is tapped.
+  /// - [rowIndex]: visual row index in `dataRows`
+  /// - [colIndex]: visual column index (after colSpan expansion)
+  /// - [cell]: the tapped cell model
+  final void Function(int rowIndex, int colIndex, GroupedTableDataCell cell)?
+      onCellTap;
+
+  /// Called when a header cell is tapped.
+  /// - [rowIndex]: header row index (after grouped-header processing)
+  /// - [colIndex]: visual column index (after colSpan expansion)
+  /// - [cell]: the tapped header cell model
+  final void Function(int rowIndex, int colIndex, GroupedTableCell cell)?
+      onHeaderTap;
+
   const GroupedTable({
     super.key,
     required this.headerRows,
@@ -59,6 +73,8 @@ class GroupedTable extends StatelessWidget {
     this.defaultHeaderHeight,
     this.rowHeight = 40.0,
     this.rowSpacing = 0,
+    this.onCellTap,
+    this.onHeaderTap,
   });
 
   /// Creates a table from simple data (List<List<dynamic>>)
@@ -103,6 +119,10 @@ class GroupedTable extends StatelessWidget {
     double? defaultHeaderHeight,
     double rowHeight = 40.0,
     double rowSpacing = 0,
+    void Function(int rowIndex, int colIndex, GroupedTableDataCell cell)?
+        onCellTap,
+    void Function(int rowIndex, int colIndex, GroupedTableCell cell)?
+        onHeaderTap,
   }) {
     final processedHeaderRows = <List<GroupedTableCell>>[];
     for (final row in headerRows) {
@@ -208,6 +228,8 @@ class GroupedTable extends StatelessWidget {
       defaultHeaderHeight: defaultHeaderHeight,
       rowHeight: rowHeight,
       rowSpacing: rowSpacing,
+      onCellTap: onCellTap,
+      onHeaderTap: onHeaderTap,
     );
   }
 
@@ -332,7 +354,13 @@ class GroupedTable extends StatelessWidget {
       widgets.add(
         Expanded(
           flex: flex,
-          child: _buildCell(context, cell, rowIndex, isLastHeaderRow),
+          child: _buildHeaderCell(
+            context,
+            cell,
+            rowIndex,
+            currentColumn,
+            isLastHeaderRow,
+          ),
         ),
       );
 
@@ -342,10 +370,11 @@ class GroupedTable extends StatelessWidget {
     return widgets;
   }
 
-  Widget _buildCell(
+  Widget _buildHeaderCell(
     BuildContext context,
     GroupedTableCell cell,
     int rowIndex,
+    int colIndex,
     bool isLastHeaderRow,
   ) {
     final height = cell.height ?? defaultHeaderHeight ?? 40.0;
@@ -386,14 +415,17 @@ class GroupedTable extends StatelessWidget {
       }
     }
 
-    return Container(
-      height: height,
-      alignment: cell.alignment,
-      decoration: BoxDecoration(
-        color: bgColor,
-        border: cellBorder,
+    return _buildTappable(
+      onTap: onHeaderTap == null ? null : () => onHeaderTap!(rowIndex, colIndex, cell),
+      child: Container(
+        height: height,
+        alignment: cell.alignment,
+        decoration: BoxDecoration(
+          color: bgColor,
+          border: cellBorder,
+        ),
+        child: content,
       ),
-      child: content,
     );
   }
 
@@ -512,14 +544,19 @@ class GroupedTable extends StatelessWidget {
                 top: rect.top,
                 width: rect.width,
                 height: rect.height,
-                child: Container(
-                  alignment: cell.alignment,
-                  decoration: BoxDecoration(
-                    color: cell.backgroundColor ?? dataBackgroundColor ?? Colors.white,
-                    border: border,
-                  ),
-                  child: ClipRect(
-                    child: _buildCellContent(cell),
+                child: _buildTappable(
+                  onTap: onCellTap == null ? null : () => onCellTap!(rowIndex, colIndex, cell),
+                  child: Container(
+                    alignment: cell.alignment,
+                    decoration: BoxDecoration(
+                      color: cell.backgroundColor ??
+                          dataBackgroundColor ??
+                          Colors.white,
+                      border: border,
+                    ),
+                    child: ClipRect(
+                      child: _buildCellContent(cell),
+                    ),
                   ),
                 ),
               );
@@ -620,14 +657,28 @@ class GroupedTable extends StatelessWidget {
 
     Widget content = _buildCellContent(cell);
 
-    return Container(
-      height: rowHeight,
-      alignment: cell.alignment,
-      decoration: BoxDecoration(
-        color: cell.backgroundColor ?? dataBackgroundColor ?? Colors.white,
-        border: border,
+    return _buildTappable(
+      onTap: onCellTap == null ? null : () => onCellTap!(rowIndex, colIndex, cell),
+      child: Container(
+        height: rowHeight,
+        alignment: cell.alignment,
+        decoration: BoxDecoration(
+          color: cell.backgroundColor ?? dataBackgroundColor ?? Colors.white,
+          border: border,
+        ),
+        child: content,
       ),
-      child: content,
+    );
+  }
+
+  Widget _buildTappable({VoidCallback? onTap, required Widget child}) {
+    if (onTap == null) return child;
+    return Material(
+      type: MaterialType.transparency,
+      child: InkWell(
+        onTap: onTap,
+        child: child,
+      ),
     );
   }
 
