@@ -1,0 +1,28 @@
+name: flutter_grouped_table
+description: A Flutter package for creating tables with merged cells (cell merge) support, especially useful for grouped headers.
+version: 0.1.0
+homepage: https://github.com/JeHeeYu/flutter_grouped_table
+repository: https://github.com/JeHeeYu/flutter_grouped_table
+
+topics:
+  - table
+  - datatable
+  - data-table
+  - grid
+  - datagrid
+  - cell-merge
+  - merged-cells
+  - grouped-table
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+  flutter: ">=3.10.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
