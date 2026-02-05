@@ -23,7 +23,7 @@ Add this to your package's `pubspec.yaml` file:
 
 ```yaml
 dependencies:
-  flutter_grouped_table: ^0.1.0
+  flutter_grouped_table: ^1.0.1
 ```
 
 Then run:
@@ -264,8 +264,7 @@ Helper class for advanced cell configuration in simple API.
 
 See the `example/` folder for more examples.
 
-<img width="1064" height="397" alt="image" src="https://github.com/user-attachments/assets/2318561f-d0cb-489f-a2ba-6343a4309cb1" />
-
+![Grouped table example](assets/images/example.png)
 
 <br>
 

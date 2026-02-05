@@ -31,3 +31,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Notes
 - Row-spanned cells compute height as the sum of the effective heights of spanned rows plus `rowSpacing` between rows.
+
+## [1.0.1] - 2026-02-05
+
+### Fixed
+- Fixed README image rendering on pub.dev by embedding example image into the repository
+  and referencing it via a relative path (`assets/images/example.png`).
+
+### Changed
+- Updated README installation instructions to reference the latest stable version (`^1.0.0`).
+- Improved README clarity around merged-cell behavior to better set expectations for UI-level merging.
