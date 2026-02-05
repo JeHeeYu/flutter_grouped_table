@@ -58,6 +58,10 @@ GroupedTable.fromSimpleData(
     0: {1: 3}, // Row 0, Column 1 spans 3 rows
   },
   columnFlexWeights: [2, 1, 1, 1, 1, 1],
+  // Optional: control the overall table size
+  // tableWidth: 900,
+  // tableHeight: 500,
+  // tableConstraints: const BoxConstraints(minWidth: 900),
 )
 ```
 
@@ -85,6 +89,48 @@ GroupedTable.fromSimpleData(
   },
 )
 ```
+
+### Per-row and Per-cell Heights
+
+You can control row heights per-row using the `rowHeights` parameter (passed to `GroupedTable` or `fromSimpleData`). A `null` entry falls back to the global `rowHeight`.
+
+```dart
+// Make some rows taller than the default 40.0
+GroupedTable.fromSimpleData(
+  headerRows: [ /* ... */ ],
+  dataRows: [ /* ... */ ],
+  rowHeight: 40.0,
+  rowHeights: const [60.0, 40.0, 50.0, 40.0, 70.0],
+);
+```
+
+If you need to override the height of a specific data cell, build the advanced API and set `height` on a `GroupedTableDataCell`.
+
+```dart
+final dataRows = [
+  [
+    GroupedTableDataCell.text('Laptop'),
+    GroupedTableDataCell(
+      child: const Text('Electronics'),
+      height: 80.0, // cell-specific override
+      rowSpan: 1,
+    ),
+    // ...
+  ],
+  // ...
+];
+
+GroupedTable(
+  headerRows: [ /* ... */ ],
+  dataRows: dataRows,
+  rowHeight: 40.0,
+);
+```
+
+Notes:
+- `GroupedTableDataCell.height` takes precedence over `rowHeights` and `rowHeight`.
+- Row-spanned cell heights are calculated as the sum of the effective heights of the spanned rows plus `rowSpacing` between rows.
+
 
 ### Advanced API (Full Control)
 
@@ -218,7 +264,8 @@ Helper class for advanced cell configuration in simple API.
 
 See the `example/` folder for more examples.
 
-<img width="1064" height="341" alt="image" src="https://github.com/user-attachments/assets/e13f15c2-1a4a-490f-adc6-9832ada0f728" />
+<img width="1064" height="397" alt="image" src="https://github.com/user-attachments/assets/2318561f-d0cb-489f-a2ba-6343a4309cb1" />
+
 
 <br>
 

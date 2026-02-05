@@ -79,6 +79,7 @@ class ExamplePage extends StatelessWidget {
       borderWidth: 0.25,
       headerBackgroundColor: const Color(0xFF676B7A),
       rowHeight: 40.0,
+      rowHeights: const [60.0, 40.0, 50.0, 40.0, 70.0, 40.0],
       onCellTap: (rowIndex, colIndex, cell) {
         final text = cell.child is Text ? ((cell.child as Text).data ?? '') : '';
         ScaffoldMessenger.of(context).showSnackBar(

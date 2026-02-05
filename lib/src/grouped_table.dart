@@ -44,19 +44,14 @@ class GroupedTable extends StatelessWidget {
   /// Spacing between rows (vertical spacing)
   final double rowSpacing;
 
+  /// Optional per-row heights. If provided, a non-null entry overrides `rowHeight` for that row.
+  final List<double?>? rowHeights;
+
   /// Called when a data cell is tapped.
-  /// - [rowIndex]: visual row index in `dataRows`
-  /// - [colIndex]: visual column index (after colSpan expansion)
-  /// - [cell]: the tapped cell model
-  final void Function(int rowIndex, int colIndex, GroupedTableDataCell cell)?
-      onCellTap;
+  final void Function(int rowIndex, int colIndex, GroupedTableDataCell cell)? onCellTap;
 
   /// Called when a header cell is tapped.
-  /// - [rowIndex]: header row index (after grouped-header processing)
-  /// - [colIndex]: visual column index (after colSpan expansion)
-  /// - [cell]: the tapped header cell model
-  final void Function(int rowIndex, int colIndex, GroupedTableCell cell)?
-      onHeaderTap;
+  final void Function(int rowIndex, int colIndex, GroupedTableCell cell)? onHeaderTap;
 
   const GroupedTable({
     super.key,
@@ -73,6 +68,7 @@ class GroupedTable extends StatelessWidget {
     this.defaultHeaderHeight,
     this.rowHeight = 40.0,
     this.rowSpacing = 0,
+    this.rowHeights,
     this.onCellTap,
     this.onHeaderTap,
   });
@@ -119,10 +115,9 @@ class GroupedTable extends StatelessWidget {
     double? defaultHeaderHeight,
     double rowHeight = 40.0,
     double rowSpacing = 0,
-    void Function(int rowIndex, int colIndex, GroupedTableDataCell cell)?
-        onCellTap,
-    void Function(int rowIndex, int colIndex, GroupedTableCell cell)?
-        onHeaderTap,
+    List<double?>? rowHeights,
+      void Function(int rowIndex, int colIndex, GroupedTableDataCell cell)? onCellTap,
+      void Function(int rowIndex, int colIndex, GroupedTableCell cell)? onHeaderTap,
   }) {
     final processedHeaderRows = <List<GroupedTableCell>>[];
     for (final row in headerRows) {
@@ -228,6 +223,7 @@ class GroupedTable extends StatelessWidget {
       defaultHeaderHeight: defaultHeaderHeight,
       rowHeight: rowHeight,
       rowSpacing: rowSpacing,
+      rowHeights: rowHeights,
       onCellTap: onCellTap,
       onHeaderTap: onHeaderTap,
     );
@@ -354,13 +350,7 @@ class GroupedTable extends StatelessWidget {
       widgets.add(
         Expanded(
           flex: flex,
-          child: _buildHeaderCell(
-            context,
-            cell,
-            rowIndex,
-            currentColumn,
-            isLastHeaderRow,
-          ),
+          child: _buildCell(context, cell, rowIndex, isLastHeaderRow),
         ),
       );
 
@@ -370,11 +360,10 @@ class GroupedTable extends StatelessWidget {
     return widgets;
   }
 
-  Widget _buildHeaderCell(
+  Widget _buildCell(
     BuildContext context,
     GroupedTableCell cell,
     int rowIndex,
-    int colIndex,
     bool isLastHeaderRow,
   ) {
     final height = cell.height ?? defaultHeaderHeight ?? 40.0;
@@ -415,17 +404,14 @@ class GroupedTable extends StatelessWidget {
       }
     }
 
-    return _buildTappable(
-      onTap: onHeaderTap == null ? null : () => onHeaderTap!(rowIndex, colIndex, cell),
-      child: Container(
-        height: height,
-        alignment: cell.alignment,
-        decoration: BoxDecoration(
-          color: bgColor,
-          border: cellBorder,
-        ),
-        child: content,
+    return Container(
+      height: height,
+      alignment: cell.alignment,
+      decoration: BoxDecoration(
+        color: bgColor,
+        border: cellBorder,
       ),
+      child: content,
     );
   }
 
@@ -463,6 +449,12 @@ class GroupedTable extends StatelessWidget {
       }
     }
 
+    // Compute effective per-row heights. If `rowHeights` provided, use its non-null values; otherwise use global `rowHeight`.
+    final effectiveRowHeights = List<double>.generate(
+      dataRows.length,
+      (i) => (rowHeights != null && i < rowHeights!.length) ? (rowHeights![i] ?? rowHeight) : rowHeight,
+    );
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final tableWidth = constraints.maxWidth;
@@ -487,11 +479,17 @@ class GroupedTable extends StatelessWidget {
 
             if (cell.rowSpan > 1) {
               final colWidth = (flexWeights[colIndex] / totalFlex) * tableWidth * cell.colSpan;
+              // height = sum of effective heights for spanned rows + spacing between them
+              double spanHeight = 0;
+              for (int r = rowIndex; r < rowIndex + cell.rowSpan && r < effectiveRowHeights.length; r++) {
+                spanHeight += effectiveRowHeights[r];
+              }
+              spanHeight += rowSpacing * (cell.rowSpan - 1);
               rowSpanPositions['$rowIndex-$colIndex'] = Rect.fromLTWH(
                 currentLeft,
                 currentTop,
                 colWidth,
-                rowHeight * cell.rowSpan + (rowSpacing * (cell.rowSpan - 1)),
+                spanHeight,
               );
             }
 
@@ -499,7 +497,7 @@ class GroupedTable extends StatelessWidget {
             colIndex += cell.colSpan;
           }
 
-          currentTop += rowHeight + (rowIndex > 0 ? rowSpacing : 0);
+          currentTop += effectiveRowHeights[rowIndex] + (rowIndex > 0 ? rowSpacing : 0);
         }
 
 
@@ -511,9 +509,9 @@ class GroupedTable extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.only(top: i > 0 ? rowSpacing : 0),
                     child: SizedBox(
-                      height: rowHeight,
+                      height: effectiveRowHeights[i],
                       child: ClipRect(
-                        child: _buildDataRow(context, dataRows[i], i, skipCells[i] ?? {}, flexWeights, totalFlex, tableWidth),
+                        child: _buildDataRow(context, dataRows[i], i, skipCells[i] ?? {}, flexWeights, totalFlex, tableWidth, effectiveRowHeights[i]),
                       ),
                     ),
                   ),
@@ -544,19 +542,14 @@ class GroupedTable extends StatelessWidget {
                 top: rect.top,
                 width: rect.width,
                 height: rect.height,
-                child: _buildTappable(
-                  onTap: onCellTap == null ? null : () => onCellTap!(rowIndex, colIndex, cell),
-                  child: Container(
-                    alignment: cell.alignment,
-                    decoration: BoxDecoration(
-                      color: cell.backgroundColor ??
-                          dataBackgroundColor ??
-                          Colors.white,
-                      border: border,
-                    ),
-                    child: ClipRect(
-                      child: _buildCellContent(cell),
-                    ),
+                child: Container(
+                  alignment: cell.alignment,
+                  decoration: BoxDecoration(
+                    color: cell.backgroundColor ?? dataBackgroundColor ?? Colors.white,
+                    border: border,
+                  ),
+                  child: ClipRect(
+                    child: _buildCellContent(cell),
                   ),
                 ),
               );
@@ -591,6 +584,7 @@ class GroupedTable extends StatelessWidget {
     List<int> flexWeights,
     int totalFlex,
     double tableWidth,
+    double rowHeightValue,
   ) {
     final isLastRow = rowIndex == dataRows.length - 1;
     final List<Widget> rowChildren = [];
@@ -601,7 +595,7 @@ class GroupedTable extends StatelessWidget {
         rowChildren.add(
           Expanded(
             flex: colIndex < flexWeights.length ? flexWeights[colIndex] : 1,
-            child: _buildEmptyDataCell(isLastRow: isLastRow),
+            child: _buildEmptyDataCell(isLastRow: isLastRow, height: rowHeightValue),
           ),
         );
         colIndex++;
@@ -613,8 +607,8 @@ class GroupedTable extends StatelessWidget {
               ? flexWeights[colIndex] * cell.colSpan
               : cell.colSpan,
           child: cell.rowSpan > 1
-              ? _buildEmptyDataCell(isLastRow: isLastRow)
-              : _buildDataCell(context, cell, rowIndex, colIndex, isLastRow: isLastRow),
+              ? _buildEmptyDataCell(isLastRow: isLastRow, height: rowHeightValue)
+              : _buildDataCell(context, cell, rowIndex, colIndex, height: rowHeightValue, isLastRow: isLastRow),
         ),
       );
 
@@ -626,12 +620,13 @@ class GroupedTable extends StatelessWidget {
         rowChildren.add(
           Expanded(
             flex: flexWeights[colIndex],
-            child: _buildEmptyDataCell(isLastRow: isLastRow),
+            child: _buildEmptyDataCell(isLastRow: isLastRow, height: rowHeightValue),
           ),
         );
       }
       colIndex++;
-    }
+      colIndex++;
+      }
 
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -644,6 +639,7 @@ class GroupedTable extends StatelessWidget {
     GroupedTableDataCell cell,
     int rowIndex,
     int colIndex, {
+    required double height,
     required bool isLastRow,
   }) {
     final border = isLastRow
@@ -657,10 +653,12 @@ class GroupedTable extends StatelessWidget {
 
     Widget content = _buildCellContent(cell);
 
+    final effectiveHeight = cell.height ?? height;
+
     return _buildTappable(
       onTap: onCellTap == null ? null : () => onCellTap!(rowIndex, colIndex, cell),
       child: Container(
-        height: rowHeight,
+        height: effectiveHeight,
         alignment: cell.alignment,
         decoration: BoxDecoration(
           color: cell.backgroundColor ?? dataBackgroundColor ?? Colors.white,
@@ -671,14 +669,15 @@ class GroupedTable extends StatelessWidget {
     );
   }
 
-  Widget _buildTappable({VoidCallback? onTap, required Widget child}) {
+  Widget _buildTappable({
+    VoidCallback? onTap,
+    required Widget child,
+  }) {
     if (onTap == null) return child;
-    return Material(
-      type: MaterialType.transparency,
-      child: InkWell(
-        onTap: onTap,
-        child: child,
-      ),
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTap: onTap,
+      child: child,
     );
   }
 
@@ -698,9 +697,9 @@ class GroupedTable extends StatelessWidget {
     return content;
   }
 
-  Widget _buildEmptyDataCell({bool isLastRow = false}) {
+  Widget _buildEmptyDataCell({bool isLastRow = false, required double height}) {
     return Container(
-      height: rowHeight,
+      height: height,
       decoration: BoxDecoration(
         color: dataBackgroundColor ?? Colors.white,
         border: isLastRow
