@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'grouped_table_cell.dart';
+import 'grouped_table_data_cell.dart';
+import 'table_cell_data.dart';
 
 /// A table widget that supports merged cells and grouped headers
 class GroupedTable extends StatelessWidget {
@@ -7,7 +9,7 @@ class GroupedTable extends StatelessWidget {
   final List<List<GroupedTableCell>> headerRows;
 
   /// Data rows
-  final List<List<Widget>> dataRows;
+  final List<List<GroupedTableDataCell>> dataRows;
 
   /// Flex weights for columns (optional, for responsive sizing)
   final List<int>? columnFlexWeights;
@@ -36,7 +38,10 @@ class GroupedTable extends StatelessWidget {
   /// Default header cell height
   final double? defaultHeaderHeight;
 
-  /// Spacing between rows
+  /// Default data row height
+  final double rowHeight;
+
+  /// Spacing between rows (vertical spacing)
   final double rowSpacing;
 
   const GroupedTable({
@@ -52,13 +57,164 @@ class GroupedTable extends StatelessWidget {
     this.headerTextStyle,
     this.dataTextStyle,
     this.defaultHeaderHeight,
+    this.rowHeight = 40.0,
     this.rowSpacing = 0,
   });
+
+  /// Creates a table from simple data (List<List<dynamic>>)
+  /// 
+  /// For grouped headers, use a Map with 'text' and 'children' keys:
+  /// ```dart
+  /// headerRows: [
+  ///   [
+  ///     'Product',
+  ///     'Category',
+  ///     {'text': 'Sales', 'children': ['Q1', 'Q2', 'Q3', 'Q4']}
+  ///   ]
+  /// ]
+  /// ```
+  /// 
+  /// Example:
+  /// ```dart
+  /// GroupedTable.fromSimpleData(
+  ///   headerRows: [
+  ///     ['Product', 'Category', {'text': 'Sales', 'children': ['Q1', 'Q2', 'Q3', 'Q4']}]
+  ///   ],
+  ///   dataRows: [
+  ///     ['Laptop', 'Electronics', '120', '150', '180', '200'],
+  ///     ['Smartphone', null, '250', '280', '300', '320'], // null = merged from previous row
+  ///   ],
+  ///   rowSpanMap: {0: {1: 3}}, // rowIndex: {colIndex: rowSpan}
+  /// )
+  /// ```
+  factory GroupedTable.fromSimpleData({
+    Key? key,
+    required List<List<dynamic>> headerRows,
+    required List<List<dynamic>> dataRows,
+    Map<int, Map<int, int>>? rowSpanMap,
+    List<int>? columnFlexWeights,
+    Color borderColor = Colors.black,
+    double borderWidth = 1.0,
+    BorderRadius? borderRadius,
+    Color? headerBackgroundColor,
+    Color? dataBackgroundColor,
+    TextStyle? headerTextStyle,
+    TextStyle? dataTextStyle,
+    double? defaultHeaderHeight,
+    double rowHeight = 40.0,
+    double rowSpacing = 0,
+  }) {
+    final processedHeaderRows = <List<GroupedTableCell>>[];
+    for (final row in headerRows) {
+      final processedRow = <GroupedTableCell>[];
+      for (final cell in row) {
+        if (cell is String) {
+          processedRow.add(GroupedTableCell.simple(cell));
+        } else if (cell is Map) {
+          final text = cell['text'] as String?;
+          final children = cell['children'] as List<dynamic>?;
+          if (text != null && children != null) {
+            processedRow.add(
+              GroupedTableCell.grouped(
+                text: text,
+                children: children
+                    .map((c) => GroupedTableCell.simple(c.toString()))
+                    .toList(),
+              ),
+            );
+          } else if (text != null) {
+            processedRow.add(GroupedTableCell.simple(text));
+          }
+        }
+      }
+      processedHeaderRows.add(processedRow);
+    }
+
+    final processedDataRows = <List<GroupedTableDataCell>>[];
+    for (int rowIndex = 0; rowIndex < dataRows.length; rowIndex++) {
+      final row = dataRows[rowIndex];
+      final processedRow = <GroupedTableDataCell>[];
+      
+      for (int colIndex = 0; colIndex < row.length; colIndex++) {
+        final value = row[colIndex];
+        
+        if (value == null) {
+          continue;
+        }
+        
+        final rowSpan = rowSpanMap?[rowIndex]?[colIndex] ?? 1;
+        
+        if (value is String) {
+          processedRow.add(
+            rowSpan > 1
+                ? GroupedTableDataCell.rowSpan(
+                    child: Text(value),
+                    rowSpan: rowSpan,
+                    textStyle: dataTextStyle,
+                  )
+                : GroupedTableDataCell.text(
+                    value,
+                    textStyle: dataTextStyle,
+                  ),
+          );
+        } else if (value is Widget) {
+          processedRow.add(
+            rowSpan > 1
+                ? GroupedTableDataCell.rowSpan(
+                    child: value,
+                    rowSpan: rowSpan,
+                    textStyle: dataTextStyle,
+                  )
+                : GroupedTableDataCell(child: value, textStyle: dataTextStyle),
+          );
+        } else if (value is TableCellData) {
+          Widget child;
+          if (value.value is String) {
+            child = Text(value.value as String);
+          } else if (value.value is Widget) {
+            child = value.value as Widget;
+          } else {
+            continue;
+          }
+          
+          processedRow.add(
+            GroupedTableDataCell(
+              child: child,
+              rowSpan: value.rowSpan,
+              colSpan: value.colSpan,
+              backgroundColor: value.backgroundColor,
+              textStyle: value.textStyle ?? dataTextStyle,
+              alignment: value.alignment,
+            ),
+          );
+        }
+      }
+      
+      processedDataRows.add(processedRow);
+    }
+
+    return GroupedTable(
+      key: key,
+      headerRows: processedHeaderRows,
+      dataRows: processedDataRows,
+      columnFlexWeights: columnFlexWeights,
+      borderColor: borderColor,
+      borderWidth: borderWidth,
+      borderRadius: borderRadius,
+      headerBackgroundColor: headerBackgroundColor,
+      dataBackgroundColor: dataBackgroundColor,
+      headerTextStyle: headerTextStyle,
+      dataTextStyle: dataTextStyle,
+      defaultHeaderHeight: defaultHeaderHeight,
+      rowHeight: rowHeight,
+      rowSpacing: rowSpacing,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
     final effectiveBorderRadius = borderRadius ?? BorderRadius.zero;
-    
+
     return Container(
       decoration: BoxDecoration(
         borderRadius: effectiveBorderRadius,
@@ -73,7 +229,7 @@ class GroupedTable extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             _buildHeader(context),
-            _buildDataRowsWithRowSpan(context),
+            _buildDataRows(context),
           ],
         ),
       ),
@@ -81,12 +237,53 @@ class GroupedTable extends StatelessWidget {
   }
 
   Widget _buildHeader(BuildContext context) {
+    final processedHeaderRows = _processGroupedHeaders();
     return Column(
       children: [
-        for (int rowIndex = 0; rowIndex < headerRows.length; rowIndex++)
-          _buildHeaderRow(context, headerRows[rowIndex], rowIndex),
+        for (int rowIndex = 0; rowIndex < processedHeaderRows.length; rowIndex++)
+          _buildHeaderRow(context, processedHeaderRows[rowIndex], rowIndex),
       ],
     );
+  }
+
+  List<List<GroupedTableCell>> _processGroupedHeaders() {
+    if (headerRows.isEmpty) return [];
+
+    final List<List<GroupedTableCell>> processed = [];
+    bool hasGroupedCells = false;
+
+    for (final row in headerRows) {
+      for (final cell in row) {
+        if (cell.children != null && cell.children!.isNotEmpty) {
+          hasGroupedCells = true;
+          break;
+        }
+      }
+      if (hasGroupedCells) break;
+    }
+
+    if (!hasGroupedCells) {
+      return headerRows;
+    }
+
+    final firstRow = headerRows[0];
+    final List<GroupedTableCell> firstProcessedRow = [];
+    final List<GroupedTableCell> secondRow = [];
+
+    for (final cell in firstRow) {
+      if (cell.children != null && cell.children!.isNotEmpty) {
+        firstProcessedRow.add(cell.copyWith(children: null, colSpan: cell.children!.length));
+        secondRow.addAll(cell.children!);
+      } else {
+        firstProcessedRow.add(cell);
+        secondRow.add(GroupedTableCell.simple(''));
+      }
+    }
+
+    processed.add(firstProcessedRow);
+    processed.add(secondRow);
+
+    return processed;
   }
 
   Widget _buildHeaderRow(
@@ -94,12 +291,13 @@ class GroupedTable extends StatelessWidget {
     List<GroupedTableCell> cells,
     int rowIndex,
   ) {
-    int totalColumns = _calculateTotalColumns(headerRows);
+    final processedRows = _processGroupedHeaders();
+    final isLastHeaderRow = rowIndex == processedRows.length - 1;
 
     return Container(
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: _buildHeaderCells(context, cells, rowIndex, totalColumns),
+        children: _buildHeaderCells(context, cells, rowIndex, isLastHeaderRow),
       ),
     );
   }
@@ -108,47 +306,35 @@ class GroupedTable extends StatelessWidget {
     BuildContext context,
     List<GroupedTableCell> cells,
     int rowIndex,
-    int totalColumns,
+    bool isLastHeaderRow,
   ) {
     List<Widget> widgets = [];
     int currentColumn = 0;
 
     for (final cell in cells) {
-      if (_shouldSkipCell(cell, rowIndex)) {
-        continue;
-      }
+      int actualColSpan = _calculateActualColSpan(cell);
 
-      if (currentColumn > 0 && rowSpacing > 0) {
-        widgets.add(SizedBox(width: rowSpacing));
-      }
-
-      int actualColSpan = _calculateActualColSpan(cell, totalColumns, currentColumn);
-
-      if (rowIndex == 0 && cell.children != null && cell.children!.isNotEmpty) {
-        int groupFlex = actualColSpan;
-        if (columnFlexWeights != null) {
+      int flex;
+      if (columnFlexWeights != null && currentColumn < columnFlexWeights!.length) {
+        if (actualColSpan > 1) {
           int sumFlex = 0;
           for (int i = 0; i < actualColSpan && (currentColumn + i) < columnFlexWeights!.length; i++) {
             sumFlex += columnFlexWeights![currentColumn + i];
           }
-          if (sumFlex > 0) groupFlex = sumFlex;
+          flex = sumFlex > 0 ? sumFlex : actualColSpan;
+        } else {
+          flex = columnFlexWeights![currentColumn];
         }
-        widgets.add(
-          Expanded(
-            flex: groupFlex,
-            child: _buildCell(context, cell.copyWith(children: null), rowIndex),
-          ),
-        );
       } else {
-        widgets.add(
-          Expanded(
-            flex: columnFlexWeights != null && currentColumn < columnFlexWeights!.length
-                ? columnFlexWeights![currentColumn]
-                : actualColSpan,
-            child: _buildCell(context, cell, rowIndex),
-          ),
-        );
+        flex = actualColSpan;
       }
+
+      widgets.add(
+        Expanded(
+          flex: flex,
+          child: _buildCell(context, cell, rowIndex, isLastHeaderRow),
+        ),
+      );
 
       currentColumn += actualColSpan;
     }
@@ -156,17 +342,14 @@ class GroupedTable extends StatelessWidget {
     return widgets;
   }
 
-
   Widget _buildCell(
     BuildContext context,
     GroupedTableCell cell,
-    int rowIndex, {
-    bool isNested = false,
-  }) {
+    int rowIndex,
+    bool isLastHeaderRow,
+  ) {
     final height = cell.height ?? defaultHeaderHeight ?? 40.0;
-    final bgColor = cell.backgroundColor ??
-        (isNested ? Colors.black : headerBackgroundColor ?? Colors.black);
-    final isLastHeaderRow = rowIndex == headerRows.length - 1;
+    final bgColor = cell.backgroundColor ?? headerBackgroundColor ?? Colors.black;
 
     Widget content;
     if (cell.builder != null) {
@@ -214,63 +397,80 @@ class GroupedTable extends StatelessWidget {
     );
   }
 
-  Widget _buildDataRowsWithRowSpan(BuildContext context) {
-    Map<int, Map<int, int>> rowSpanMap = {};
-    Map<int, Set<int>> skipCells = {};
-    Map<String, GlobalKey> cellKeys = {};
-    
+  Widget _buildDataRows(BuildContext context) {
+    if (dataRows.isEmpty) return const SizedBox.shrink();
+
+    final totalColumns = _calculateDataColumns();
+    final Map<int, Map<int, int>> rowSpanMap = {};
+    final Map<int, Set<int>> skipCells = {};
+
     for (int rowIndex = 0; rowIndex < dataRows.length; rowIndex++) {
       final row = dataRows[rowIndex];
-      for (int colIndex = 0; colIndex < row.length; colIndex++) {
-        cellKeys['$rowIndex-$colIndex'] = GlobalKey();
-      }
-    }
-    
-    for (int rowIndex = 0; rowIndex < dataRows.length; rowIndex++) {
-      final row = dataRows[rowIndex];
-      for (int colIndex = 0; colIndex < row.length; colIndex++) {
-        final cell = row[colIndex];
-        final cellHeight = _getCellHeight(cell);
-        if (cellHeight > 40) {
-          final rowSpan = (cellHeight / 40).round();
+      int colIndex = 0;
+
+      for (final cell in row) {
+        while (skipCells[rowIndex]?.contains(colIndex) == true) {
+          colIndex++;
+        }
+
+        if (cell.rowSpan > 1) {
           rowSpanMap[rowIndex] ??= {};
-          rowSpanMap[rowIndex]![colIndex] = rowSpan;
-          
-          for (int nextRow = rowIndex + 1; nextRow < rowIndex + rowSpan && nextRow < dataRows.length; nextRow++) {
+          rowSpanMap[rowIndex]![colIndex] = cell.rowSpan;
+
+          for (int nextRow = rowIndex + 1;
+              nextRow < rowIndex + cell.rowSpan && nextRow < dataRows.length;
+              nextRow++) {
             skipCells[nextRow] ??= {};
-            skipCells[nextRow]!.add(colIndex);
+            for (int spanCol = colIndex; spanCol < colIndex + cell.colSpan; spanCol++) {
+              skipCells[nextRow]!.add(spanCol);
+            }
           }
         }
+
+        colIndex += cell.colSpan;
       }
     }
-    
+
     return LayoutBuilder(
       builder: (context, constraints) {
         final tableWidth = constraints.maxWidth;
-        final flexWeights = columnFlexWeights ?? List.generate(dataRows.isNotEmpty ? dataRows[0].length : 0, (_) => 1);
+        final flexWeights = columnFlexWeights ??
+            List.generate(totalColumns, (_) => 1);
         final totalFlex = flexWeights.fold(0, (sum, w) => sum + w);
-        
+
         Map<String, Rect> rowSpanPositions = {};
         double currentTop = 0;
-        
+
         for (int rowIndex = 0; rowIndex < dataRows.length; rowIndex++) {
+          final row = dataRows[rowIndex];
           double currentLeft = 0;
-          for (int colIndex = 0; colIndex < flexWeights.length; colIndex++) {
-            if (rowSpanMap[rowIndex]?[colIndex] != null) {
-              final rowSpan = rowSpanMap[rowIndex]![colIndex]!;
+          int colIndex = 0;
+
+          for (final cell in row) {
+            while (skipCells[rowIndex]?.contains(colIndex) == true) {
               final colWidth = (flexWeights[colIndex] / totalFlex) * tableWidth;
+              currentLeft += colWidth;
+              colIndex++;
+            }
+
+            if (cell.rowSpan > 1) {
+              final colWidth = (flexWeights[colIndex] / totalFlex) * tableWidth * cell.colSpan;
               rowSpanPositions['$rowIndex-$colIndex'] = Rect.fromLTWH(
                 currentLeft,
                 currentTop,
                 colWidth,
-                40.0 * rowSpan,
+                rowHeight * cell.rowSpan + (rowSpacing * (cell.rowSpan - 1)),
               );
             }
-            currentLeft += (flexWeights[colIndex] / totalFlex) * tableWidth;
+
+            currentLeft += (flexWeights[colIndex] / totalFlex) * tableWidth * cell.colSpan;
+            colIndex += cell.colSpan;
           }
-          currentTop += 40 + (rowIndex > 0 ? rowSpacing : 0);
+
+          currentTop += rowHeight + (rowIndex > 0 ? rowSpacing : 0);
         }
-        
+
+
         return Stack(
           children: [
             Column(
@@ -279,9 +479,9 @@ class GroupedTable extends StatelessWidget {
                   Padding(
                     padding: EdgeInsets.only(top: i > 0 ? rowSpacing : 0),
                     child: SizedBox(
-                      height: 40,
+                      height: rowHeight,
                       child: ClipRect(
-                        child: _buildDataRow(context, dataRows[i], i, skipCells[i] ?? {}),
+                        child: _buildDataRow(context, dataRows[i], i, skipCells[i] ?? {}, flexWeights, totalFlex, tableWidth),
                       ),
                     ),
                   ),
@@ -292,10 +492,12 @@ class GroupedTable extends StatelessWidget {
               final rowIndex = int.parse(parts[0]);
               final colIndex = int.parse(parts[1]);
               final rect = entry.value;
-              final cell = dataRows[rowIndex][colIndex];
+              final cell = _getCellAtPosition(rowIndex, colIndex);
+              if (cell == null) return const SizedBox.shrink();
+
               final rowSpan = rowSpanMap[rowIndex]![colIndex]!;
               final isLastRowOfSpan = rowIndex + rowSpan - 1 == dataRows.length - 1;
-              
+
               final border = isLastRowOfSpan
                   ? Border(
                       right: BorderSide(color: borderColor, width: borderWidth),
@@ -304,21 +506,20 @@ class GroupedTable extends StatelessWidget {
                       right: BorderSide(color: borderColor, width: borderWidth),
                       bottom: BorderSide(color: borderColor, width: borderWidth),
                     );
-              
+
               return Positioned(
                 left: rect.left,
                 top: rect.top,
                 width: rect.width,
                 height: rect.height,
                 child: Container(
-                  key: cellKeys['$rowIndex-$colIndex'],
-                  alignment: Alignment.center,
+                  alignment: cell.alignment,
                   decoration: BoxDecoration(
-                    color: dataBackgroundColor ?? Colors.white,
+                    color: cell.backgroundColor ?? dataBackgroundColor ?? Colors.white,
                     border: border,
                   ),
                   child: ClipRect(
-                    child: cell,
+                    child: _buildCellContent(cell),
                   ),
                 ),
               );
@@ -329,31 +530,126 @@ class GroupedTable extends StatelessWidget {
     );
   }
 
+  GroupedTableDataCell? _getCellAtPosition(int rowIndex, int colIndex) {
+    if (rowIndex < 0 || rowIndex >= dataRows.length) return null;
+
+    final row = dataRows[rowIndex];
+    int currentCol = 0;
+
+    for (final cell in row) {
+      if (colIndex >= currentCol && colIndex < currentCol + cell.colSpan) {
+        return cell;
+      }
+      currentCol += cell.colSpan;
+    }
+
+    return null;
+  }
+
   Widget _buildDataRow(
     BuildContext context,
-    List<Widget> cells,
+    List<GroupedTableDataCell> cells,
     int rowIndex,
     Set<int> skipColumns,
+    List<int> flexWeights,
+    int totalFlex,
+    double tableWidth,
   ) {
     final isLastRow = rowIndex == dataRows.length - 1;
+    final List<Widget> rowChildren = [];
+    int colIndex = 0;
+
+    for (final cell in cells) {
+      while (skipColumns.contains(colIndex)) {
+        rowChildren.add(
+          Expanded(
+            flex: colIndex < flexWeights.length ? flexWeights[colIndex] : 1,
+            child: _buildEmptyDataCell(isLastRow: isLastRow),
+          ),
+        );
+        colIndex++;
+      }
+
+      rowChildren.add(
+        Expanded(
+          flex: colIndex < flexWeights.length
+              ? flexWeights[colIndex] * cell.colSpan
+              : cell.colSpan,
+          child: cell.rowSpan > 1
+              ? _buildEmptyDataCell(isLastRow: isLastRow)
+              : _buildDataCell(context, cell, rowIndex, colIndex, isLastRow: isLastRow),
+        ),
+      );
+
+      colIndex += cell.colSpan;
+    }
+
+    while (colIndex < flexWeights.length) {
+      if (!skipColumns.contains(colIndex)) {
+        rowChildren.add(
+          Expanded(
+            flex: flexWeights[colIndex],
+            child: _buildEmptyDataCell(isLastRow: isLastRow),
+          ),
+        );
+      }
+      colIndex++;
+    }
+
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        for (int i = 0; i < cells.length; i++)
-          Expanded(
-            flex: columnFlexWeights != null && i < columnFlexWeights!.length
-                ? columnFlexWeights![i]
-                : 1,
-            child: skipColumns.contains(i)
-                ? _buildEmptyDataCell(isLastRow: isLastRow)
-                : _wrapDataCell(context, cells[i], rowIndex, i, isLastRow: isLastRow),
-          ),
-      ],
+      children: rowChildren,
     );
+  }
+
+  Widget _buildDataCell(
+    BuildContext context,
+    GroupedTableDataCell cell,
+    int rowIndex,
+    int colIndex, {
+    required bool isLastRow,
+  }) {
+    final border = isLastRow
+        ? Border(
+            right: BorderSide(color: borderColor, width: borderWidth),
+          )
+        : Border(
+            right: BorderSide(color: borderColor, width: borderWidth),
+            bottom: BorderSide(color: borderColor, width: borderWidth),
+          );
+
+    Widget content = _buildCellContent(cell);
+
+    return Container(
+      height: rowHeight,
+      alignment: cell.alignment,
+      decoration: BoxDecoration(
+        color: cell.backgroundColor ?? dataBackgroundColor ?? Colors.white,
+        border: border,
+      ),
+      child: content,
+    );
+  }
+
+  Widget _buildCellContent(GroupedTableDataCell cell) {
+    Widget content = cell.child;
+
+    if (cell.textStyle != null && content is Text) {
+      content = Text(
+        content.data ?? '',
+        style: cell.textStyle?.merge(content.style),
+        textAlign: content.textAlign,
+        maxLines: content.maxLines,
+        overflow: content.overflow,
+      );
+    }
+
+    return content;
   }
 
   Widget _buildEmptyDataCell({bool isLastRow = false}) {
     return Container(
+      height: rowHeight,
       decoration: BoxDecoration(
         color: dataBackgroundColor ?? Colors.white,
         border: isLastRow
@@ -368,94 +664,14 @@ class GroupedTable extends StatelessWidget {
     );
   }
 
-  Widget _wrapDataCell(BuildContext context, Widget child, int rowIndex, int colIndex, {bool isLastRow = false}) {
-    final cellHeight = _getCellHeight(child);
-    
-    final border = isLastRow
-        ? Border(
-            right: BorderSide(color: borderColor, width: borderWidth),
-          )
-        : Border(
-            right: BorderSide(color: borderColor, width: borderWidth),
-            bottom: BorderSide(color: borderColor, width: borderWidth),
-          );
-    
-    if (cellHeight > 40) {
-      return Container(
-        height: 40,
-        decoration: BoxDecoration(
-          color: dataBackgroundColor ?? Colors.white,
-          border: border,
-        ),
-      );
-    }
-    
-    return Container(
-      height: 40,
-      decoration: BoxDecoration(
-        color: dataBackgroundColor ?? Colors.white,
-        border: border,
-      ),
-      child: ClipRect(
-        child: Align(
-          alignment: Alignment.center,
-          child: child,
-        ),
-      ),
-    );
-  }
-
-  double _getCellHeight(Widget cell) {
-    if (cell is SizedBox) {
-      return _getCellHeightFromSizedBox(cell);
-    }
-    
-    if (cell is Container) {
-      return _getCellHeightFromContainer(cell);
-    }
-    
-    return 40;
-  }
-  
-  double _getCellHeightFromContainer(Container container) {
-    if (container.constraints != null && container.constraints!.hasBoundedHeight) {
-      final height = container.constraints!.maxHeight;
-      if (height > 40) return height;
-    }
-    
-    final child = container.child;
-    if (child != null) {
-      if (child is Container) {
-        final childHeight = _getCellHeightFromContainer(child);
-        if (childHeight > 40) return childHeight;
-      }
-    }
-    
-    return 40;
-  }
-  
-  double _getCellHeightFromSizedBox(SizedBox sizedBox) {
-    if (sizedBox.height != null) {
-      final height = sizedBox.height!;
-      if (height > 40) {
-        return height;
-      }
-    }
-    return 40;
-  }
-
-  int _calculateTotalColumns(List<List<GroupedTableCell>> rows) {
-    if (rows.isEmpty) return 0;
+  int _calculateDataColumns() {
+    if (dataRows.isEmpty) return 0;
 
     int maxColumns = 0;
-    for (final row in rows) {
+    for (final row in dataRows) {
       int rowColumns = 0;
       for (final cell in row) {
-        if (cell.children != null && cell.children!.isNotEmpty) {
-          rowColumns += cell.children!.length;
-        } else {
-          rowColumns += cell.colSpan;
-        }
+        rowColumns += cell.colSpan;
       }
       maxColumns = maxColumns > rowColumns ? maxColumns : rowColumns;
     }
@@ -463,17 +679,12 @@ class GroupedTable extends StatelessWidget {
     return maxColumns;
   }
 
-  bool _shouldSkipCell(GroupedTableCell cell, int currentRow) {
-    return false;
-  }
-
-  int _calculateActualColSpan(GroupedTableCell cell, int totalColumns, int currentColumn) {
+  int _calculateActualColSpan(GroupedTableCell cell) {
     if (cell.children != null && cell.children!.isNotEmpty) {
       return cell.children!.length;
     }
     return cell.colSpan;
   }
-
 }
 
 /// Extension to help with cell copying

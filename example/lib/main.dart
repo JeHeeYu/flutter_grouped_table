@@ -12,6 +12,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       title: 'Flutter Grouped Table Example',
+      debugShowCheckedModeBanner: false,
       theme: ThemeData(
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple),
         useMaterial3: true,
@@ -27,11 +28,7 @@ class ExamplePage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text('Grouped Table Example'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
+      backgroundColor: const Color(0xFF0D1116),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(24.0),
@@ -43,7 +40,7 @@ class ExamplePage extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
-                  color: Colors.black87,
+                  color: Colors.white,
                 ),
               ),
               const SizedBox(height: 32),
@@ -56,121 +53,32 @@ class ExamplePage extends StatelessWidget {
   }
 
   Widget _buildSimpleTable(BuildContext context) {
-    final headerRow = [
-      GroupedTableCell.simple('Product'),
-      GroupedTableCell.simple('Category'),
-      GroupedTableCell.grouped(
-        text: 'Sales',
-        children: [
-          GroupedTableCell.simple('Q1'),
-          GroupedTableCell.simple('Q2'),
-          GroupedTableCell.simple('Q3'),
-          GroupedTableCell.simple('Q4'),
-        ],
-      ),
-    ];
-
-    final dataRows = [
-      [
-        _buildDataCell('Laptop'),
-        _buildMergedAgeCell('Electronics', rowSpan: 3),
-        _buildDataCell('120'),
-        _buildDataCell('150'),
-        _buildDataCell('180'),
-        _buildDataCell('200'),
+    return GroupedTable.fromSimpleData(
+      headerRows: const [
+        [
+          'Product',
+          'Category',
+          {'text': 'Sales', 'children': ['Q1', 'Q2', 'Q3', 'Q4']}
+        ]
       ],
-      [
-        _buildDataCell('Smartphone'),
-        _buildEmptyCell(),
-        _buildDataCell('250'),
-        _buildDataCell('280'),
-        _buildDataCell('300'),
-        _buildDataCell('320'),
+      dataRows: const [
+        ['Laptop', 'Electronics', '120', '150', '180', '200'],
+        ['Smartphone', null, '250', '280', '300', '320'],
+        ['Tablet', null, '80', '90', '100', '110'],
+        ['Desk Chair', 'Furniture', '45', '50', '55', '60'],
+        ['Office Desk', null, '30', '35', '40', '45'],
+        ['Monitor', 'Electronics', '95', '105', '115', '125'],
       ],
-      [
-        _buildDataCell('Tablet'),
-        _buildDataCell('Electronics'),
-        _buildDataCell('80'),
-        _buildDataCell('90'),
-        _buildDataCell('100'),
-        _buildDataCell('110'),
-      ],
-      [
-        _buildDataCell('Desk Chair'),
-        _buildDataCell('Furniture'),
-        _buildDataCell('45'),
-        _buildDataCell('50'),
-        _buildDataCell('55'),
-        _buildDataCell('60'),
-      ],
-      [
-        _buildDataCell('Office Desk'),
-        _buildDataCell('Furniture'),
-        _buildDataCell('30'),
-        _buildDataCell('35'),
-        _buildDataCell('40'),
-        _buildDataCell('45'),
-      ],
-      [
-        _buildDataCell('Monitor'),
-        _buildDataCell('Electronics'),
-        _buildDataCell('95'),
-        _buildDataCell('105'),
-        _buildDataCell('115'),
-        _buildDataCell('125'),
-      ],
-    ];
-
-    return GroupedTable(
-      headerRows: [headerRow],
-      dataRows: dataRows,
-      columnFlexWeights: [2, 1, 1, 1, 1, 1],
+      rowSpanMap: const {
+        0: {1: 3},
+        3: {1: 2},
+      },
+      columnFlexWeights: const [2, 1, 1, 1, 1, 1],
       borderRadius: const BorderRadius.all(Radius.circular(10)),
       borderColor: Colors.black,
-      borderWidth: 0.1,
-      headerBackgroundColor: const Color.fromARGB(255, 103, 109, 122),
+      borderWidth: 0.25,
+      headerBackgroundColor: const Color(0xFF676B7A),
+      rowHeight: 40.0,
     );
   }
-
-  Widget _buildDataCell(String text) {
-    return Container(
-      height: 40,
-      alignment: Alignment.center,
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 10,
-          fontWeight: FontWeight.w600,
-          color: Colors.black,
-        ),
-        textAlign: TextAlign.center,
-      ),
-    );
-  }
-
-  Widget _buildMergedAgeCell(String text, {required int rowSpan}) {
-    return SizedBox(
-      height: 40.0 * rowSpan,
-      child: Container(
-        alignment: Alignment.center,
-        child: Text(
-          text,
-          style: const TextStyle(
-            fontSize: 10,
-            fontWeight: FontWeight.w600,
-            color: Colors.black,
-          ),
-          textAlign: TextAlign.center,
-        ),
-      ),
-    );
-  }
-
-  Widget _buildEmptyCell() {
-    return Container(
-      height: 40,
-      alignment: Alignment.center,
-    );
-  }
-
 }

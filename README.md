@@ -8,9 +8,12 @@ A Flutter package for creating tables with merged cells (cell merge) support, es
 
 ## Features
 
-- ✅ **Cell Merge Support**: Merge cells across multiple rows/columns in headers
-- ✅ **Grouped Headers**: Support nested header structures (e.g., "Score" with "Math", "English", "Science" sub-headers)
-- ✅ **Row Span**: Support vertical cell merging in data rows
+- ✅ **Cell Merge Support**: Merge cells across multiple rows/columns in headers and data rows
+- ✅ **Grouped Headers**: Automatic multi-row header layout with nested structures (e.g., "Sales" with "Q1", "Q2", "Q3", "Q4" sub-headers)
+- ✅ **Row Span**: Explicit row span support in data cells
+- ✅ **Column Span**: Column span support in both headers and data rows
+- ✅ **Simple API**: Easy-to-use API for common use cases with simple data structures
+- ✅ **Advanced API**: Full control with data models for complex scenarios
 - ✅ **Customizable**: Customize cell styles, colors, borders, and more
 - ✅ **Responsive**: Use flex weights to control column sizes
 
@@ -31,120 +34,123 @@ flutter pub get
 
 ## Usage
 
-### Basic Example
+### Simple API (Recommended for Most Cases)
+
+The simplest way to create a table is using `GroupedTable.fromSimpleData()`:
 
 ```dart
 import 'package:flutter_grouped_table/flutter_grouped_table.dart';
 
-// Header configuration
+GroupedTable.fromSimpleData(
+  headerRows: [
+    [
+      'Product',
+      'Category',
+      {'text': 'Sales', 'children': ['Q1', 'Q2', 'Q3', 'Q4']}
+    ]
+  ],
+  dataRows: [
+    ['Laptop', 'Electronics', '120', '150', '180', '200'],
+    ['Smartphone', null, '250', '280', '300', '320'],
+    ['Tablet', null, '80', '90', '100', '110'],
+  ],
+  rowSpanMap: {
+    0: {1: 3}, // Row 0, Column 1 spans 3 rows
+  },
+  columnFlexWeights: [2, 1, 1, 1, 1, 1],
+)
+```
+
+**Key Points:**
+- Use `null` in data rows to indicate a cell is merged from the previous row
+- Use `rowSpanMap` to specify which cells span multiple rows: `{rowIndex: {colIndex: rowSpan}}`
+- For grouped headers, use a Map: `{'text': 'Header', 'children': ['Sub1', 'Sub2']}`
+
+### Row Span Example
+
+To create vertically merged cells, use `rowSpanMap`:
+
+```dart
+GroupedTable.fromSimpleData(
+  headerRows: [
+    ['Product', 'Category', 'Q1', 'Q2', 'Q3', 'Q4']
+  ],
+  dataRows: [
+    ['Laptop', 'Electronics', '120', '150', '180', '200'],
+    ['Smartphone', null, '250', '280', '300', '320'], // null = merged from row 0
+    ['Tablet', null, '80', '90', '100', '110'],       // null = merged from row 0
+  ],
+  rowSpanMap: {
+    0: {1: 3}, // Row 0, Column 1 (Category) spans 3 rows
+  },
+)
+```
+
+### Advanced API (Full Control)
+
+For advanced use cases requiring custom widgets or fine-grained control:
+
+```dart
 final headerRow = [
-  GroupedTableCell.simple('Name'),
-  GroupedTableCell.simple('Age'),
-  // Grouped header: "Score" with "Math", "English", "Science" sub-headers
+  GroupedTableCell.simple('Product'),
+  GroupedTableCell.simple('Category'),
   GroupedTableCell.grouped(
-    text: 'Score',
+    text: 'Sales',
     children: [
-      GroupedTableCell.simple('Math'),
-      GroupedTableCell.simple('English'),
-      GroupedTableCell.simple('Science'),
+      GroupedTableCell.simple('Q1'),
+      GroupedTableCell.simple('Q2'),
+      GroupedTableCell.simple('Q3'),
+      GroupedTableCell.simple('Q4'),
     ],
   ),
 ];
 
-// Data rows
 final dataRows = [
   [
-    Text('John'),
-    Text('20'),
-    Text('90'),
-    Text('85'),
-    Text('95'),
+    GroupedTableDataCell.text('Laptop'),
+    GroupedTableDataCell.rowSpan(
+      child: const Text('Electronics'),
+      rowSpan: 3,
+    ),
+    GroupedTableDataCell.text('120'),
+    GroupedTableDataCell.text('150'),
+    GroupedTableDataCell.text('180'),
+    GroupedTableDataCell.text('200'),
   ],
-  // ... more rows
+  [
+    GroupedTableDataCell.text('Smartphone'),
+    GroupedTableDataCell.text('250'),
+    GroupedTableDataCell.text('280'),
+    GroupedTableDataCell.text('300'),
+    GroupedTableDataCell.text('320'),
+  ],
 ];
 
-// Table widget
 GroupedTable(
   headerRows: [headerRow],
   dataRows: dataRows,
-  columnFlexWeights: [2, 1, 1, 1, 1],
+  columnFlexWeights: [2, 1, 1, 1, 1, 1],
 )
 ```
 
-### Row Span Example
-
-To create a cell that spans multiple rows vertically, wrap your cell content in a `SizedBox` with height `40.0 * rowSpan`:
-
-```dart
-// Helper method to create a merged cell
-Widget _buildMergedCell(String text, {required int rowSpan}) {
-  return SizedBox(
-    height: 40.0 * rowSpan,
-    child: Container(
-      alignment: Alignment.center,
-      child: Text(
-        text,
-        style: const TextStyle(
-          fontSize: 14,
-          fontWeight: FontWeight.w600,
-        ),
-        textAlign: TextAlign.center,
-      ),
-    ),
-  );
-}
-
-// Helper method to create an empty cell (for merged cells in subsequent rows)
-Widget _buildEmptyCell() {
-  return Container(
-    height: 40,
-    alignment: Alignment.center,
-  );
-}
-
-// Data rows with row span
-final dataRows = [
-  [
-    _buildDataCell('John'),
-    _buildMergedCell('20', rowSpan: 2), // Spans 2 rows
-    _buildDataCell('90'),
-    _buildDataCell('85'),
-    _buildDataCell('95'),
-  ],
-  [
-    _buildDataCell('Jane'),
-    _buildEmptyCell(), // Empty cell (merged from previous row)
-    _buildDataCell('88'),
-    _buildDataCell('92'),
-    _buildDataCell('90'),
-  ],
-  [
-    _buildDataCell('Bob'),
-    _buildDataCell('25'), // New cell starts here
-    _buildDataCell('85'),
-    _buildDataCell('80'),
-    _buildDataCell('88'),
-  ],
-];
-```
-
-**Important Notes:**
-- Use `SizedBox` (not `Container`) with explicit `height` property for row span cells
-- The height must be `40.0 * rowSpan` where `rowSpan` is the number of rows to merge
-- For subsequent rows that are part of the merged cell, use an empty cell (e.g., `_buildEmptyCell()`)
-- The default row height is 40 pixels
-
 ## API Reference
 
-### GroupedTable
+### GroupedTable.fromSimpleData
 
-Main table widget.
+Factory constructor for creating tables from simple data structures.
 
-#### Properties
+#### Parameters
 
-- `headerRows` (required): List of header row configurations
-- `dataRows` (required): List of data rows
-- `columnFlexWeights`: Flex weights for columns (optional, for responsive sizing)
+- `headerRows` (required): List of header rows. Each row can contain:
+  - `String`: Simple header text
+  - `Map`: Grouped header with `{'text': 'Header', 'children': ['Sub1', 'Sub2']}`
+- `dataRows` (required): List of data rows. Each cell can be:
+  - `String`: Text content
+  - `Widget`: Custom widget
+  - `null`: Merged cell (skipped, part of rowSpan from previous row)
+  - `TableCellData`: Advanced cell configuration
+- `rowSpanMap`: Map specifying row spans: `{rowIndex: {colIndex: rowSpan}}`
+- `columnFlexWeights`: Flex weights for columns
 - `borderColor`: Border color (default: `Colors.black`)
 - `borderWidth`: Border width (default: `1.0`)
 - `borderRadius`: Table border radius
@@ -152,36 +158,69 @@ Main table widget.
 - `dataBackgroundColor`: Background color for data cells
 - `headerTextStyle`: Default text style for headers
 - `dataTextStyle`: Default text style for data cells
-- `defaultHeaderHeight`: Default header cell height
-- `rowSpacing`: Spacing between rows
+- `defaultHeaderHeight`: Default header cell height (default: `40.0`)
+- `rowHeight`: Default data row height (default: `40.0`)
+- `rowSpacing`: Vertical spacing between rows (default: `0`)
+
+### GroupedTable
+
+Main table widget (advanced API).
+
+#### Properties
+
+- `headerRows` (required): List of header row configurations (`List<List<GroupedTableCell>>`)
+- `dataRows` (required): List of data rows (`List<List<GroupedTableDataCell>>`)
+- `columnFlexWeights`: Flex weights for columns
+- `borderColor`: Border color (default: `Colors.black`)
+- `borderWidth`: Border width (default: `1.0`)
+- `borderRadius`: Table border radius
+- `headerBackgroundColor`: Background color for header cells
+- `dataBackgroundColor`: Background color for data cells
+- `headerTextStyle`: Default text style for headers
+- `dataTextStyle`: Default text style for data cells
+- `defaultHeaderHeight`: Default header cell height (default: `40.0`)
+- `rowHeight`: Default data row height (default: `40.0`)
+- `rowSpacing`: Vertical spacing between rows (default: `0`)
 
 ### GroupedTableCell
 
-Represents a table cell.
+Represents a header cell in the table.
 
 #### Constructors
 
 - `GroupedTableCell()`: Default constructor
 - `GroupedTableCell.simple(String text)`: Simple text cell
 - `GroupedTableCell.merged()`: Merged cell spanning multiple columns/rows
-- `GroupedTableCell.grouped()`: Grouped header with nested children
+- `GroupedTableCell.grouped()`: Grouped header with nested children (automatically creates multi-row header)
 
-#### Properties
+### GroupedTableDataCell
 
-- `text`: Cell text content
-- `colSpan`: Number of columns this cell spans (default: 1)
-- `rowSpan`: Number of rows this cell spans (default: 1)
-- `backgroundColor`: Cell background color
-- `textStyle`: Text style
-- `alignment`: Cell content alignment (default: `Alignment.center`)
-- `builder`: Custom widget builder (if provided, `text` is ignored)
-- `border`: Border configuration
-- `height`: Cell height
-- `children`: Child cells (for grouped headers)
+Represents a data cell in the table.
+
+#### Constructors
+
+- `GroupedTableDataCell()`: Default constructor with `child` widget
+- `GroupedTableDataCell.text(String text)`: Simple text cell
+- `GroupedTableDataCell.merged()`: Merged cell spanning multiple columns/rows
+- `GroupedTableDataCell.rowSpan()`: Cell with row span
+
+### TableCellData
+
+Helper class for advanced cell configuration in simple API.
+
+#### Constructors
+
+- `TableCellData.text(String text)`: Simple text cell
+- `TableCellData.rowSpan(dynamic value, int rowSpan)`: Cell with row span
+- `TableCellData.empty()`: Empty cell (for merged cells)
 
 ## Example
 
 See the `example/` folder for more examples.
+
+<img width="1064" height="341" alt="image" src="https://github.com/user-attachments/assets/e13f15c2-1a4a-490f-adc6-9832ada0f728" />
+
+<br>
 
 ```bash
 cd example
