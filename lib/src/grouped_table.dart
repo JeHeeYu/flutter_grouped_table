@@ -312,11 +312,9 @@ class GroupedTable extends StatelessWidget {
     final processedRows = _processGroupedHeaders();
     final isLastHeaderRow = rowIndex == processedRows.length - 1;
 
-    return Container(
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: _buildHeaderCells(context, cells, rowIndex, isLastHeaderRow),
-      ),
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: _buildHeaderCells(context, cells, rowIndex, isLastHeaderRow),
     );
   }
 
